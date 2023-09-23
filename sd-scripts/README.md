@@ -12,17 +12,100 @@ This repository contains the scripts for:
 * DreamBooth training, including U-Net and Text Encoder
 * Fine-tuning (native training), including U-Net and Text Encoder
 * LoRA training
-* Texutl Inversion training
+* Textual Inversion training
 * Image generation
 * Model conversion (supports 1.x and 2.x, Stable Diffision ckpt/safetensors and Diffusers)
 
 __Stable Diffusion web UI now seems to support LoRA trained by ``sd-scripts``.__ Thank you for great work!!! 
 
+## About SDXL training
+
+The feature of SDXL training is now available in sdxl branch as an experimental feature. 
+
+Summary of the feature:
+
+- `tools/cache_latents.py` is added. This script can be used to cache the latents to disk in advance. 
+  - The options are almost the same as `sdxl_train.py'. See the help message for the usage.
+  - Please launch the script as follows:
+    `accelerate launch  --num_cpu_threads_per_process 1 tools/cache_latents.py ...`
+  - This script should work with multi-GPU, but it is not tested in my environment.
+
+- `tools/cache_text_encoder_outputs.py` is added. This script can be used to cache the text encoder outputs to disk in advance. 
+  - The options are almost the same as `cache_latents.py' and `sdxl_train.py'. See the help message for the usage.
+
+- `sdxl_train.py` is a script for SDXL fine-tuning. The usage is almost the same as `fine_tune.py`, but it also supports DreamBooth dataset.
+  - `--full_bf16` option is added. Thanks to KohakuBlueleaf!
+    - This option enables the full bfloat16 training (includes gradients). This option is useful to reduce the GPU memory usage. 
+    - However, bitsandbytes==0.35 doesn't seem to support this. Please use a newer version of bitsandbytes or another optimizer.
+    - I cannot find bitsandbytes>0.35.0 that works correctly on Windows.
+    - In addition, the full bfloat16 training might be unstable. Please use it at your own risk.
+- `prepare_buckets_latents.py` now supports SDXL fine-tuning.
+- `sdxl_train_network.py` is a script for LoRA training for SDXL. The usage is almost the same as `train_network.py`.
+- Both scripts has following additional options:
+  - `--cache_text_encoder_outputs` and `--cache_text_encoder_outputs_to_disk`: Cache the outputs of the text encoders. This option is useful to reduce the GPU memory usage. This option cannot be used with options for shuffling or dropping the captions.
+  - `--no_half_vae`: Disable the half-precision (mixed-precision) VAE. VAE for SDXL seems to produce NaNs in some cases. This option is useful to avoid the NaNs.
+- The image generation during training is now available. `--no_half_vae` option also works to avoid black images.
+
+- `--weighted_captions` option is not supported yet for both scripts.
+- `--min_timestep` and `--max_timestep` options are added to each training script. These options can be used to train U-Net with different timesteps. The default values are 0 and 1000.
+
+- `sdxl_train_textual_inversion.py` is a script for Textual Inversion training for SDXL. The usage is almost the same as `train_textual_inversion.py`.
+  - `--cache_text_encoder_outputs` is not supported.
+  - `token_string` must be alphabet only currently, due to the limitation of the open-clip tokenizer.
+  - There are two options for captions:
+    1. Training with captions. All captions must include the token string. The token string is replaced with multiple tokens.
+    2. Use `--use_object_template` or `--use_style_template` option. The captions are generated from the template. The existing captions are ignored.
+  - See below for the format of the embeddings.
+  
+- `sdxl_gen_img.py` is added. This script can be used to generate images with SDXL, including LoRA. See the help message for the usage.
+  - Textual Inversion is supported, but the name for the embeds in the caption becomes alphabet only. For example, `neg_hand_v1.safetensors` can be activated with `neghandv`.
+
+`requirements.txt` is updated to support SDXL training. 
+
+### Tips for SDXL training
+
+- The default resolution of SDXL is 1024x1024.
+- The fine-tuning can be done with 24GB GPU memory with the batch size of 1. For 24GB GPU, the following options are recommended:
+  - Train U-Net only.
+  - Use gradient checkpointing.
+  - Use `--cache_text_encoder_outputs` option and caching latents.
+  - Use Adafactor optimizer. RMSprop 8bit or Adagrad 8bit may work. AdamW 8bit doesn't seem to work.
+- The LoRA training can be done with 12GB GPU memory.
+- `--network_train_unet_only` option is highly recommended for SDXL LoRA. Because SDXL has two text encoders, the result of the training will be unexpected.
+- PyTorch 2 seems to use slightly less GPU memory than PyTorch 1.
+- `--bucket_reso_steps` can be set to 32 instead of the default value 64. Smaller values than 32 will not work for SDXL training.
+
+Example of the optimizer settings for Adafactor with the fixed learning rate:
+```toml
+optimizer_type = "adafactor"
+optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False" ]
+lr_scheduler = "constant_with_warmup"
+lr_warmup_steps = 100
+learning_rate = 4e-7 # SDXL original learning rate
+```
+
+### Format of Textual Inversion embeddings
+
+```python
+from safetensors.torch import save_file
+
+state_dict = {"clip_g": embs_for_text_encoder_1280, "clip_l": embs_for_text_encoder_768}
+save_file(state_dict, file)
+```
+
+### TODO
+
+- [ ] Support conversion of Diffusers SDXL models.
+- [ ] Support `--weighted_captions` option.
+- [ ] Change `--output_config` option to continue the training.
+- [ ] Extend `--full_bf16` for all the scripts.
+- [x] Support Textual Inversion training.
+
 ## About requirements.txt
 
 These files do not contain requirements for PyTorch. Because the versions of them depend on your environment. Please install PyTorch at first (see installation guide below.) 
 
-The scripts are tested with PyTorch 1.12.1 and 1.13.0, Diffusers 0.10.2.
+The scripts are tested with PyTorch 1.12.1 and 2.0.1, Diffusers 0.17.1.
 
 ## Links to how-to-use documents
 
@@ -75,8 +158,6 @@ cp .\bitsandbytes_windows\main.py .\venv\Lib\site-packages\bitsandbytes\cuda_set
 accelerate config
 ```
 
-update: ``python -m venv venv`` is seemed to be safer than ``python -m venv --system-site-packages venv`` (some user have packages in global python).
-
 Answers to accelerate config:
 
 ```txt
@@ -94,6 +175,30 @@ note: Some user reports ``ValueError: fp16 mixed precision requires a GPU`` is o
 
 (Single GPU with id `0` will be used.)
 
+### Experimental: Use PyTorch 2.0
+
+In this case, you need to install PyTorch 2.0 and xformers 0.0.20. Instead of the above, please type the following:
+
+```powershell
+git clone https://github.com/kohya-ss/sd-scripts.git
+cd sd-scripts
+
+python -m venv venv
+.\venv\Scripts\activate
+
+pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --index-url https://download.pytorch.org/whl/cu118
+pip install --upgrade -r requirements.txt
+pip install xformers==0.0.20
+
+cp .\bitsandbytes_windows\*.dll .\venv\Lib\site-packages\bitsandbytes\
+cp .\bitsandbytes_windows\cextension.py .\venv\Lib\site-packages\bitsandbytes\cextension.py
+cp .\bitsandbytes_windows\main.py .\venv\Lib\site-packages\bitsandbytes\cuda_setup\main.py
+
+accelerate config
+```
+
+Answers to accelerate config should be the same as above.
+
 ### about PyTorch and xformers
 
 Other versions of PyTorch and xformers seem to have problems with training.
@@ -105,6 +210,16 @@ For Lion8bit, you need to upgrade `bitsandbytes` to 0.38.0 or later. Uninstall `
 
 ```powershell
 pip install https://github.com/jllllll/bitsandbytes-windows-webui/raw/main/bitsandbytes-0.38.1-py3-none-any.whl
+```
+
+For upgrading, upgrade this repo with `pip install .`, and upgrade necessary packages manually.
+
+### Optional: Use PagedAdamW8bit and PagedLion8bit
+
+For PagedAdamW8bit and PagedLion8bit, you need to upgrade `bitsandbytes` to 0.39.0 or later. Uninstall `bitsandbytes`, and for Windows, install the Windows version whl file from [here](https://github.com/jllllll/bitsandbytes-windows-webui) or other sources, like:
+
+```powershell
+pip install https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.39.1-py3-none-win_amd64.whl
 ```
 
 For upgrading, upgrade this repo with `pip install .`, and upgrade necessary packages manually.
@@ -139,6 +254,42 @@ The majority of scripts is licensed under ASL 2.0 (including codes from Diffuser
 [BLIP](https://github.com/salesforce/BLIP): BSD-3-Clause
 
 ## Change History
+
+### 15 Jun. 2023, 2023/06/15
+
+- Prodigy optimizer is supported in each training script. It is a member of D-Adaptation and is effective for DyLoRA training. [PR #585](https://github.com/kohya-ss/sd-scripts/pull/585) Please see the PR for details. Thanks to sdbds!
+  - Install the package with `pip install prodigyopt`. Then specify the option like `--optimizer_type="prodigy"`.
+- Arbitrary Dataset is supported in each training script (except XTI). You can use it by defining a Dataset class that returns images and captions.
+  - Prepare a Python script and define a class that inherits `train_util.MinimalDataset`. Then specify the option like `--dataset_class package.module.DatasetClass` in each training script.
+  - Please refer to `MinimalDataset` for implementation. I will prepare a sample later.
+- The following features have been added to the generation script.
+  - Added an option `--highres_fix_disable_control_net` to disable ControlNet in the 2nd stage of Highres. Fix. Please try it if the image is disturbed by some ControlNet such as Canny.
+  - Added Variants similar to sd-dynamic-propmpts in the prompt.
+    - If you specify `{spring|summer|autumn|winter}`, one of them will be randomly selected.
+    - If you specify `{2$$chocolate|vanilla|strawberry}`, two of them will be randomly selected.
+    - If you specify `{1-2$$ and $$chocolate|vanilla|strawberry}`, one or two of them will be randomly selected and connected by ` and `.
+    - You can specify the number of candidates in the range `0-2`. You cannot omit one side like `-2` or `1-`.
+    - It can also be specified for the prompt option.
+    - If you specify `e` or `E`, all candidates will be selected and the prompt will be repeated multiple times (`--images_per_prompt` is ignored). It may be useful for creating X/Y plots.
+    - You can also specify `--am {e$$0.2|0.4|0.6|0.8|1.0},{e$$0.4|0.7|1.0} --d 1234`. In this case, 15 prompts will be generated with 5*3.
+    - There is no weighting function.
+
+- 各学習スクリプトでProdigyオプティマイザがサポートされました。D-Adaptationの仲間でDyLoRAの学習に有効とのことです。 [PR #585](https://github.com/kohya-ss/sd-scripts/pull/585)  詳細はPRをご覧ください。sdbds氏に感謝します。
+  - `pip install prodigyopt` としてパッケージをインストールしてください。また `--optimizer_type="prodigy"` のようにオプションを指定します。
+- 各学習スクリプトで任意のDatasetをサポートしました（XTIを除く）。画像とキャプションを返すDatasetクラスを定義することで、学習スクリプトから利用できます。
+  - Pythonスクリプトを用意し、`train_util.MinimalDataset`を継承するクラスを定義してください。そして各学習スクリプトのオプションで `--dataset_class package.module.DatasetClass` のように指定してください。
+  - 実装方法は `MinimalDataset` を参考にしてください。のちほどサンプルを用意します。
+- 生成スクリプトに以下の機能追加を行いました。
+  - Highres. Fixの2nd stageでControlNetを無効化するオプション `--highres_fix_disable_control_net` を追加しました。Canny等一部のControlNetで画像が乱れる場合にお試しください。
+  - プロンプトでsd-dynamic-propmptsに似たVariantをサポートしました。
+    - `{spring|summer|autumn|winter}` のように指定すると、いずれかがランダムに選択されます。
+    - `{2$$chocolate|vanilla|strawberry}` のように指定すると、いずれか2個がランダムに選択されます。
+    - `{1-2$$ and $$chocolate|vanilla|strawberry}` のように指定すると、1個か2個がランダムに選択され ` and ` で接続されます。
+    - 個数のレンジ指定では`0-2`のように0個も指定可能です。`-2`や`1-`のような片側の省略はできません。
+    - プロンプトオプションに対しても指定可能です。
+    - `{e$$chocolate|vanilla|strawberry}` のように`e`または`E`を指定すると、すべての候補が選択されプロンプトが複数回繰り返されます（`--images_per_prompt`は無視されます）。X/Y plotの作成に便利かもしれません。
+    - `--am {e$$0.2|0.4|0.6|0.8|1.0},{e$$0.4|0.7|1.0} --d 1234`のような指定も可能です。この場合、5*3で15回のプロンプトが生成されます。
+    - Weightingの機能はありません。
 
 ### 8 Jun. 2023, 2023/06/08
 
