@@ -33,3 +33,6 @@ Based on the work of [kohya-ss](https://github.com/kohya-ss/sd-scripts) , [Linaq
 如果你基于此项目进行了修改、引用等用途，请注意原作者的协议。
 
 请在你使用的部分标明代码来源。
+
+
+以上是秋葉大佬的文档而我做的内容是基于对阿里云环境的适配和一些其他的代码修整内容
