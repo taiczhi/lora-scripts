@@ -52,3 +52,4 @@ Edit `train.sh`, and run it.
 Run `tensorboard.ps1` will start TensorBoard at http://localhost:6006/
 
 ![](./assets/tensorboard-example.png)
+以上是秋葉大佬的文档而我做的内容是基于对阿里云环境的适配和一些其他的代码修整内容8.15qiu
