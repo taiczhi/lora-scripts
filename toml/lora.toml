@@ -1,12 +1,12 @@
 [model_arguments]
 v2 = false
 v_parameterization = false
-pretrained_model_name_or_path = "./sd-models/model.ckpt"
+pretrained_model_name_or_path = "./sd-models/down.safetensors"
 
 [dataset_arguments]
 train_data_dir = "./train/aki"
 reg_data_dir = ""
-resolution = "512,512"
+resolution = "768,1024"
 prior_loss_weight = 1
 
 [additional_network_arguments]
@@ -27,7 +27,7 @@ lr_warmup_steps = 0
 lr_restart_cycles = 1
 
 [training_arguments]
-batch_size = 1
+train_batch_size = 1
 noise_offset = 0.0
 keep_tokens = 0
 min_bucket_reso = 256

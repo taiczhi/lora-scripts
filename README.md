@@ -1,35 +1,54 @@
-# Colab SD-LoRA training
-
+# LoRA-scripts
 
 LoRA training scripts for [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts.git)
 
-Based on the work of [kohya-ss](https://github.com/kohya-ss/sd-scripts) , [Linaqruf](https://github.com/Linaqruf/kohya-trainer) and [Akegarasu](https://github.com/Akegarasu/lora-scripts).
+✨NEW: Train GUI
 
-| Notebook Name | Description | Link | Old-Version |
-| --- | --- | --- | --- |
-| [Colab_Lora_train](https://github.com/WSH032/lora-scripts/) | 基于[Akegarasu/lora-scripts](https://github.com/Akegarasu/lora-scripts)的定制化Colab notebook | [![](https://img.shields.io/static/v1?message=Open%20in%20Colab&logo=googlecolab&labelColor=5c5c5c&color=0f80c1&label=%20&style=flat)](https://colab.research.google.com/github/WSH032/lora-scripts/blob/main/Colab_Lora_train.ipynb) | [![](https://img.shields.io/static/v1?message=Older%20Version&logo=googlecolab&labelColor=5c5c5c&color=e74c3c&label=%20&style=flat)](https://colab.research.google.com/drive/1_f0qJdM43BSssNJWtgjIlk9DkIzLPadx) | 
-| [kohya_train_webui](https://github.com/WSH032/kohya-config-webui) `NEW` | 基于[WSH032/kohya-config-webui](https://github.com/WSH032/kohya-config-webui)的WebUI版Colab notebook | [![](https://img.shields.io/static/v1?message=Open%20in%20Colab&logo=googlecolab&labelColor=5c5c5c&color=0f80c1&label=%20&style=flat)](https://colab.research.google.com/github/WSH032/kohya-config-webui/blob/main/kohya_train_webui.ipynb) |
+![image](https://github.com/Akegarasu/lora-scripts/assets/36563862/0a2edcb8-023a-4fe6-8c92-2bad9ccab64c)
 
-# 我做了什么？
+Follow the installation guide below to install the GUI, then run `run_gui.ps1`(windows) or `run_gui.sh`(linux) to start the GUI. 
 
-编写了kohya-lora训练的colab notebook及使用教程，你可以点击上面列表的![](https://img.shields.io/static/v1?message=Open%20in%20Colab&logo=googlecolab&labelColor=5c5c5c&color=0f80c1&label=%20&style=flat)图标来使用它们
 
-安装教程里的去做，此notebook会帮你安装好所需的环境，通过colab的交互式组件，你可以很快而方便的完成训练参数设置并开始训练。
+## Usage
 
-如果你觉得这个项目好用， 可以给我一颗小星星 ⭐ ， 我会非常感谢。
+### Clone repo with submodules
 
-同时，也请不要忘了[kohya-ss](https://github.com/kohya-ss/sd-scripts) ， [Linaqruf](https://github.com/Linaqruf/kohya-trainer) 和 [Akegarasu](https://github.com/Akegarasu/lora-scripts) 的工作。 强烈建议也去给他们点小星星！
+```sh
+git clone --recurse-submodules https://github.com/Akegarasu/lora-scripts
+```
 
-特别是 [Linaqruf](https://github.com/Linaqruf/kohya-trainer)， 我的notebook里面采用了很多来自他项目的代码和思路。
+### Required Dependencies
 
-# Credit
+Python 3.10.8 and Git
 
-这个项目使用了如下的三位作者的代码
+### Windows
 
-[kohya-ss](https://github.com/kohya-ss/sd-scripts) 和 [Linaqruf](https://github.com/Linaqruf/kohya-trainer)目前采取的是Apache-2.0 license
+#### Installation
 
-[Akegarasu](https://github.com/Akegarasu/lora-scripts) 目前尚未标明协议
+Run `install.ps1` will automaticilly create a venv for you and install necessary deps.
 
-如果你基于此项目进行了修改、引用等用途，请注意原作者的协议。
+#### Train
 
-请在你使用的部分标明代码来源。
+Edit `train.ps1`, and run it.
+
+### Linux
+
+#### Installation
+
+Run `install.bash` will create a venv and install necessary deps.
+
+#### Train
+
+Training script `train.sh` **will not** activate venv for you. You should activate venv first.
+
+```sh
+source venv/bin/activate
+```
+
+Edit `train.sh`, and run it.
+
+#### TensorBoard
+
+Run `tensorboard.ps1` will start TensorBoard at http://localhost:6006/
+
+![](./assets/tensorboard-example.png)
